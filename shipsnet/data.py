@@ -22,17 +22,6 @@ def load_data_from_json(data_dir: Union[str, Path] = DATA_DIR) -> dict:
     return data_dict
 
 
-"""
-def as_dataframe(self) -> pd.DataFrame:
-    data_dict = load_json(self.data_dir)
-    data_df = pd.DataFrame(data_dict)
-    data_df["lon"] = [coords[0] for coords in data_df["locations"]]
-    data_df["lat"] = [coords[1] for coords in data_df["locations"]]
-    data_df.drop(columns="locations", inplace=True)
-    return data_df
-"""
-
-
 class LabelledTensorDataset(Dataset):
     def __init__(self, data: torch.Tensor, labels: torch.Tensor) -> None:
         super().__init__()
@@ -73,14 +62,14 @@ class ShipsDataModule(LightningDataModule):
 
     def setup(self, stage: Union[str, None] = None) -> None:
         """Creates train/val/test datasets."""
-        data_dict = load_json(self.data_dir)
+        data_dict = load_data_from_json(self.data_dir)
 
         # Convert to torch.Tensor
         pixels = torch.tensor(data_dict["data"], dtype=float).view(-1, 3, 80, 80)
         labels = torch.tensor(data_dict["labels"], dtype=bool)
 
-        # Rescale pixels to [0, 1]
-        pixels /= 255
+        # Rescale pixels to [-0.5, 0.5]
+        pixels = pixels / 255 - 0.5
 
         dataset = LabelledTensorDataset(pixels, labels)
 
