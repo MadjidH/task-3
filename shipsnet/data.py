@@ -50,6 +50,12 @@ class ShipsDataModule(LightningDataModule):
 
     def prepare_data(self) -> None:
         """Downloads and extracts the dataset."""
+        # Skip if data exists already
+        json_file = self.data_dir / "shipsnet.json"
+        if json_file.exists():
+            print(f"Found existing dataset at '{json_file}'")
+            return
+
         kaggle_api = KaggleApi()
         kaggle_api.authenticate()
         kaggle_api.dataset_download_files(
@@ -65,21 +71,22 @@ class ShipsDataModule(LightningDataModule):
         data_dict = load_data_from_json(self.data_dir)
 
         # Convert to torch.Tensor
-        pixels = torch.tensor(data_dict["data"], dtype=float).view(-1, 3, 80, 80)
-        labels = torch.tensor(data_dict["labels"], dtype=bool)
+        pixels = torch.tensor(data_dict["data"], dtype=torch.float).view(-1, 3, 80, 80)
+        labels = torch.tensor(data_dict["labels"], dtype=torch.bool)
 
         # Rescale pixels to [-0.5, 0.5]
-        pixels = pixels / 255 - 0.5
+        pixels = (pixels / 255) - 0.5
 
-        dataset = LabelledTensorDataset(pixels, labels)
+        self.full_dataset = LabelledTensorDataset(pixels, labels)
 
         # Split into train / validation / test
-        n_tot = len(dataset)
+        n_tot = len(self.full_dataset)
         n_train = int(n_tot * self.train_frac)
         n_val = (n_tot - n_train) // 2
         n_test = n_tot - n_val - n_train
+
         self.train_dataset, self.val_dataset, self.test_dataset = random_split(
-            dataset, [n_train, n_val, n_test]
+            self.full_dataset, [n_train, n_val, n_test]
         )
 
     def train_dataloader(self):
