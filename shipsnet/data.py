@@ -1,5 +1,4 @@
 import json
-from os import PathLike
 from pathlib import Path
 from typing import Union
 
@@ -12,6 +11,26 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 from . import REPO_ROOT
 
 DATA_DIR = REPO_ROOT / "data"
+
+
+def load_data_from_json(data_dir: Union[str, Path] = DATA_DIR) -> dict:
+    """Reads data from json file and returns dict."""
+    data_dir = Path(str(data_dir))
+    data_json = data_dir / "shipsnet.json"
+    with data_json.open("r") as file:
+        data_dict = json.load(file)
+    return data_dict
+
+
+"""
+def as_dataframe(self) -> pd.DataFrame:
+    data_dict = load_json(self.data_dir)
+    data_df = pd.DataFrame(data_dict)
+    data_df["lon"] = [coords[0] for coords in data_df["locations"]]
+    data_df["lat"] = [coords[1] for coords in data_df["locations"]]
+    data_df.drop(columns="locations", inplace=True)
+    return data_df
+"""
 
 
 class LabelledTensorDataset(Dataset):
@@ -33,7 +52,7 @@ class ShipsDataModule(LightningDataModule):
         self,
         batch_size: PositiveInt = 32,
         train_frac: ClosedUnitInterval = 0.75,
-        data_dir: Union[str, PathLike] = DATA_DIR,
+        data_dir: Union[str, Path] = DATA_DIR,
     ) -> None:
         super().__init__()
         self.batch_size = batch_size
@@ -53,10 +72,8 @@ class ShipsDataModule(LightningDataModule):
         )
 
     def setup(self, stage: Union[str, None] = None) -> None:
-        """Reads data from json file and creates train/val/test datasets."""
-        data_json = self.data_dir / "shipsnet.json"
-        with data_json.open("r") as file:
-            data_dict = json.load(file)
+        """Creates train/val/test datasets."""
+        data_dict = load_json(self.data_dir)
 
         # Convert to torch.Tensor
         pixels = torch.tensor(data_dict["data"], dtype=float).view(-1, 3, 80, 80)
