@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Union
 
@@ -9,6 +10,8 @@ from jsonargparse.typing import PositiveInt, ClosedUnitInterval
 from kaggle.api.kaggle_api_extended import KaggleApi
 
 from . import REPO_ROOT
+
+log = logging.getLogger(__name__)
 
 DATA_DIR = REPO_ROOT / "data"
 
@@ -41,19 +44,23 @@ class ShipsDataModule(LightningDataModule):
         self,
         batch_size: PositiveInt = 32,
         train_frac: ClosedUnitInterval = 0.75,
+        random_split_seed: PositiveInt = 123456789,
         data_dir: Union[str, Path] = DATA_DIR,
     ) -> None:
         super().__init__()
         self.batch_size = batch_size
         self.train_frac = train_frac
         self.data_dir = Path(str(data_dir)).resolve()
+        self.random_split_seed = random_split_seed
+
+        self.save_hyperparameters(ignore="data_dir")
 
     def prepare_data(self) -> None:
         """Downloads and extracts the dataset."""
         # Skip if data exists already
         json_file = self.data_dir / "shipsnet.json"
         if json_file.exists():
-            print(f"Found existing dataset at '{json_file}'")
+            log.info(f"Found existing dataset at '{json_file}'")
             return
 
         kaggle_api = KaggleApi()
@@ -86,7 +93,9 @@ class ShipsDataModule(LightningDataModule):
         n_test = n_tot - n_val - n_train
 
         self.train_dataset, self.val_dataset, self.test_dataset = random_split(
-            self.full_dataset, [n_train, n_val, n_test]
+            self.full_dataset,
+            [n_train, n_val, n_test],
+            generator=torch.Generator().manual_seed(self.random_split_seed),
         )
 
     def train_dataloader(self):
